@@ -55,6 +55,8 @@
 3. 点击「创建 API Key」
 4. 复制生成的 API Key（格式：`sk-xxxxxxxx...`）
 
+![API设置界面](https://raw.githubusercontent.com/qtwaiter/qwen-tts-clone-api/main/apiset.png)
+
 ⚠️ **注意**：
 - 中国内地（北京）和国际站（新加坡）的 API Key 不同
 - 确保你的 API Key 有访问语音合成服务的权限
@@ -180,6 +182,8 @@ python3 -m http.server 8443 --certfile cert.pem --keyfile key.pem
 3. 点击「选择音频文件」上传音频样本
 4. 点击「创建音色」按钮
 
+![创建音色界面](https://raw.githubusercontent.com/qtwaiter/qwen-tts-clone-api/main/create.png)
+
 #### 音频要求
 
 | 项目 | 要求 |
@@ -230,6 +234,8 @@ python3 -m http.server 8443 --certfile cert.pem --keyfile key.pem
 2. 从下拉菜单中选择已创建的音色
 3. 在文本框中输入要合成的文本
 4. 点击「开始合成」按钮
+
+![语音合成界面](https://raw.githubusercontent.com/qtwaiter/qwen-tts-clone-api/main/clone.png)
 
 #### 文本输入
 
