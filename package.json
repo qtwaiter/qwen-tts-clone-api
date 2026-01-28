@@ -1,0 +1,13 @@
+{
+  "name": "qwen-voice-clone-proxy",
+  "version": "1.0.0",
+  "description": "WebSocket proxy for Qwen TTS",
+  "main": "proxy-server.js",
+  "scripts": {
+    "start": "node proxy-server.js",
+    "install-deps": "npm install ws"
+  },
+  "dependencies": {
+    "ws": "^8.19.0"
+  }
+}

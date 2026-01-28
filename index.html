@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Qwen 声音克隆</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .card h2 {
+            color: #333;
+            margin-bottom: 16px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 8px;
+        }
+        .form-group {
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 500;
+        }
+        input[type="text"],
+        input[type="password"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-secondary {
+            background: #6c757d;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        .file-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #f8f9fa;
+            border: 2px dashed #667eea;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #667eea;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .file-label:hover {
+            background: #e9ecef;
+        }
+        .audio-preview {
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .voice-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .voice-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        .voice-item:last-child {
+            border-bottom: none;
+        }
+        .voice-info {
+            flex: 1;
+        }
+        .voice-name {
+            font-weight: 600;
+            color: #333;
+        }
+        .voice-id {
+            font-size: 12px;
+            color: #888;
+            font-family: monospace;
+            word-break: break-all;
+        }
+        .voice-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 16px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        .log-entry.error { color: #f48771; }
+        .log-entry.success { color: #89d185; }
+        .log-entry.info { color: #4fc1ff; }
+        .log-entry.warning { color: #dcdcaa; }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        .tab.active {
+            background: white;
+            color: #667eea;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .result-audio {
+            margin-top: 16px;
+            padding: 16px;
+            background: #e8f5e9;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .result-audio audio {
+            width: 100%;
+            margin-top: 8px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        .tips {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 12px 16px;
+            margin-bottom: 16px;
+            border-radius: 0 8px 8px 0;
+        }
+        .tips ul {
+            margin-left: 20px;
+            margin-top: 8px;
+        }
+        .tips li {
+            margin-bottom: 4px;
+        }
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .debug-info h3 {
+            margin-bottom: 8px;
+            color: #666;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .status-badge.ok {
+            background: #28a745;
+            color: white;
+        }
+        .status-badge.error {
+            background: #dc3545;
+            color: white;
+        }
+        .status-badge.warning {
+            background: #ffc107;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎙️ Qwen 声音克隆</h1>
+        
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('create')">创建音色</button>
+            <button class="tab" onclick="switchTab('list')">我的音色</button>
+            <button class="tab" onclick="switchTab('synthesize')">语音合成</button>
+            <button class="tab" onclick="switchTab('settings')">设置</button>
+        </div>
+
+        <!-- 创建音色 -->
+        <div id="create" class="tab-content active">
+            <div class="card">
+                <h2>创建新音色</h2>
+                <div class="tips">
+                    <strong>音频要求：</strong>
+                    <ul>
+                        <li>格式：WAV (16bit)、MP3、M4A</li>
+                        <li>时长：推荐 10-20 秒，最长不超过 60 秒</li>
+                        <li>大小：小于 10 MB</li>
+                        <li>采样率：≥ 24 kHz，单声道</li>
+                        <li>内容：清晰朗读，无背景音、噪音或其他人声</li>
+                    </ul>
+                </div>
+                <div class="form-group">
+                    <label>音色名称（用于识别）</label>
+                    <input type="text" id="voiceName" placeholder="例如：my_voice_01" maxlength="16">
+                </div>
+                <div class="form-group">
+                    <label>上传音频样本</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="audioFile" accept=".wav,.mp3,.m4a,audio/*">
+                        <label for="audioFile" class="file-label">📁 选择音频文件</label>
+                    </div>
+                    <div id="audioPreview" class="audio-preview" style="display:none;">
+                        <div>已选择: <span id="fileName"></span></div>
+                        <audio id="previewPlayer" controls style="margin-top:8px;width:100%;"></audio>
+                    </div>
+                </div>
+                <button class="btn" id="createBtn" onclick="createVoice()">
+                    <span id="createBtnText">创建音色</span>
+                </button>
+                <div id="createResult"></div>
+            </div>
+        </div>
+
+        <!-- 音色列表 -->
+        <div id="list" class="tab-content">
+            <div class="card">
+                <h2>我的音色列表</h2>
+                <button class="btn btn-secondary" onclick="loadVoiceList()">🔄 刷新列表</button>
+                <div id="voiceList" class="voice-list" style="margin-top:16px;">
+                    <div class="empty-state">点击刷新按钮加载音色列表</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 语音合成 -->
+        <div id="synthesize" class="tab-content">
+            <div class="card">
+                <h2>语音合成</h2>
+                <div class="form-group">
+                    <label>选择音色</label>
+                    <select id="synthesisVoice">
+                        <option value="">请先创建音色</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>输入文本</label>
+                    <textarea id="synthesisText" placeholder="请输入要合成的文本..."></textarea>
+                </div>
+                <button class="btn" id="synthesizeBtn" onclick="synthesize()">
+                    <span id="synthesizeBtnText">开始合成</span>
+                </button>
+                <div id="synthesisResult"></div>
+            </div>
+        </div>
+
+        <!-- 设置 -->
+        <div id="settings" class="tab-content">
+            <div class="card">
+                <h2>API 设置</h2>
+                <div class="form-group">
+                    <label>DashScope API Key <span id="apiKeyStatus" class="status-badge">未设置</span></label>
+                    <input type="password" id="apiKey" placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+                    <small style="color:#888;">你的 API Key 仅存储在本地浏览器中</small>
+                </div>
+                <div class="form-group">
+                    <label>服务地域</label>
+                    <select id="region">
+                        <option value="cn">中国内地（北京）</option>
+                        <option value="intl">国际站（新加坡）</option>
+                    </select>
+                    <small style="color:#888;">请确保 API Key 与选择的地域对应</small>
+                </div>
+                <div class="form-group">
+                    <label>语音合成模型</label>
+                    <select id="targetModel">
+                        <option value="qwen3-tts-vc-realtime-2026-01-15">qwen3-tts-vc-realtime-2026-01-15（推荐）</option>
+                        <option value="qwen3-tts-vc-realtime-2025-11-27">qwen3-tts-vc-realtime-2025-11-27</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="useProxy" style="margin-right:8px;">
+                        使用 CORS 代理（解决 HTTP API 跨域问题）
+                    </label>
+                    <small style="color:#888;">勾选后使用代理服务器转发 HTTP 请求</small>
+                </div>
+                <div class="form-group">
+                    <label>WebSocket 代理地址（可选）</label>
+                    <input type="text" id="wsProxyUrl" placeholder="ws://localhost:3001/proxy" value="ws://localhost:3001/proxy">
+                    <small style="color:#888;">留空则直接连接阿里云服务器。如果遇到 WebSocket 跨域问题，请先运行代理服务器：<code>npm run install-deps && npm start</code></small>
+                </div>
+                <button class="btn btn-success" onclick="saveSettings()">保存设置</button>
+                <button class="btn btn-secondary" onclick="testConnection()" style="margin-left:8px;">测试连接</button>
+            </div>
+            
+            <div class="card">
+                <h2>运行日志</h2>
+                <div id="log" class="log"></div>
+                <button class="btn btn-secondary btn-small" onclick="clearLog()" style="margin-top:8px;">清空日志</button>
+                <button class="btn btn-secondary btn-small" onclick="exportLog()" style="margin-left:8px;">导出日志</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 配置
+        const CONFIG = {
+            cn: {
+                httpUrl: 'https://dashscope.aliyuncs.com/api/v1/services/audio/tts/customization',
+                wsUrl: 'wss://dashscope.aliyuncs.com/api-ws/v1/realtime'
+            },
+            intl: {
+                httpUrl: 'https://dashscope-intl.aliyuncs.com/api/v1/services/audio/tts/customization',
+                wsUrl: 'wss://dashscope-intl.aliyuncs.com/api-ws/v1/realtime'
+            },
+            proxy: {
+                enabled: localStorage.getItem('qwen_use_proxy') === 'true',
+                httpProxy: 'https://corsproxy.io/?',
+                wsProxy: null // WebSocket 不支持标准代理
+            }
+        };
+
+        // 状态
+        let currentAudioFile = null;
+        let ws = null;
+        let audioContext = null;
+        let audioQueue = [];
+        let isPlaying = false;
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            log('页面加载完成', 'info');
+            log(`当前URL: ${window.location.href}`, 'info');
+            checkBrowserSupport();
+            loadSettings();
+            setupFileInput();
+        });
+
+        function checkBrowserSupport() {
+            const features = {
+                'File API': typeof FileReader !== 'undefined',
+                'WebSocket': typeof WebSocket !== 'undefined',
+                'AudioContext': typeof (window.AudioContext || window.webkitAudioContext) !== 'undefined',
+                'localStorage': typeof localStorage !== 'undefined'
+            };
+            
+            log('浏览器特性检查:', 'info');
+            for (const [feature, supported] of Object.entries(features)) {
+                const status = supported ? '✓' : '✗';
+                const type = supported ? 'success' : 'error';
+                log(`  ${status} ${feature}`, type);
+            }
+            
+            const allSupported = Object.values(features).every(v => v);
+            if (allSupported) {
+                log('✓ 所有必需的浏览器特性都支持', 'success');
+            } else {
+                log('✗ 部分浏览器特性不支持，可能影响功能', 'warning');
+            }
+        }
+
+        // 标签切换
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            
+            if (tabName === 'list') loadVoiceList();
+            if (tabName === 'synthesize') updateVoiceSelect();
+        }
+
+        // 设置
+        function loadSettings() {
+            const apiKey = localStorage.getItem('qwen_api_key') || '';
+            const region = localStorage.getItem('qwen_region') || 'cn';
+            const model = localStorage.getItem('qwen_model') || 'qwen3-tts-vc-realtime-2026-01-15';
+            const useProxy = localStorage.getItem('qwen_use_proxy') === 'true';
+            const wsProxyUrl = localStorage.getItem('qwen_ws_proxy_url') || 'ws://localhost:3001/proxy';
+            document.getElementById('apiKey').value = apiKey;
+            document.getElementById('region').value = region;
+            document.getElementById('targetModel').value = model;
+            document.getElementById('useProxy').checked = useProxy;
+            document.getElementById('wsProxyUrl').value = wsProxyUrl;
+            CONFIG.proxy.enabled = useProxy;
+            updateApiKeyStatus(apiKey);
+        }
+
+        function saveSettings() {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            localStorage.setItem('qwen_api_key', apiKey);
+            localStorage.setItem('qwen_region', document.getElementById('region').value);
+            localStorage.setItem('qwen_model', document.getElementById('targetModel').value);
+            localStorage.setItem('qwen_use_proxy', document.getElementById('useProxy').checked);
+            localStorage.setItem('qwen_ws_proxy_url', document.getElementById('wsProxyUrl').value);
+            CONFIG.proxy.enabled = document.getElementById('useProxy').checked;
+            updateApiKeyStatus(apiKey);
+            log('设置已保存', 'success');
+        }
+
+        function getSettings() {
+            return {
+                apiKey: localStorage.getItem('qwen_api_key') || '',
+                region: localStorage.getItem('qwen_region') || 'cn',
+                model: localStorage.getItem('qwen_model') || 'qwen3-tts-vc-realtime-2026-01-15',
+                useProxy: localStorage.getItem('qwen_use_proxy') === 'true',
+                wsProxyUrl: localStorage.getItem('qwen_ws_proxy_url') || 'ws://localhost:3001/proxy'
+            };
+        }
+
+        // 代理 URL 转换
+        function getProxiedUrl(url) {
+            const settings = getSettings();
+            if (settings.useProxy && url.startsWith('https://')) {
+                log(`使用代理: ${CONFIG.proxy.httpProxy}${encodeURIComponent(url)}`, 'info');
+                return CONFIG.proxy.httpProxy + encodeURIComponent(url);
+            }
+            return url;
+        }
+
+        function updateApiKeyStatus(apiKey) {
+            const statusEl = document.getElementById('apiKeyStatus');
+            if (!apiKey) {
+                statusEl.textContent = '未设置';
+                statusEl.className = 'status-badge error';
+            } else if (apiKey.startsWith('sk-') && apiKey.length > 20) {
+                statusEl.textContent = '已设置';
+                statusEl.className = 'status-badge ok';
+            } else {
+                statusEl.textContent = '格式异常';
+                statusEl.className = 'status-badge warning';
+            }
+        }
+
+        // 测试连接
+        async function testConnection() {
+            const settings = getSettings();
+            
+            if (!settings.apiKey) {
+                alert('请先设置 API Key');
+                return;
+            }
+
+            log('开始测试 API 连接...', 'info');
+            log(`API Key: ${settings.apiKey.substring(0, 10)}...`, 'info');
+            log(`地域: ${settings.region}`, 'info');
+
+            try {
+                const startTime = Date.now();
+                const url = getProxiedUrl(CONFIG[settings.region].httpUrl);
+                log(`请求URL: ${url}`, 'info');
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'qwen-voice-enrollment',
+                        input: {
+                            action: 'list',
+                            page_size: 1,
+                            page_index: 0
+                        }
+                    })
+                });
+
+                const duration = Date.now() - startTime;
+                log(`请求耗时: ${duration}ms`, 'info');
+                log(`HTTP状态码: ${response.status}`, response.ok ? 'success' : 'warning');
+
+                const contentType = response.headers.get('content-type');
+                log(`响应类型: ${contentType}`, 'info');
+
+                const data = await response.json();
+                log(`完整响应: ${JSON.stringify(data, null, 2)}`, 'info');
+
+                if (response.ok) {
+                    log('✓ API 连接测试成功！', 'success');
+                    alert('连接测试成功！API Key 和地域配置正确。');
+                } else {
+                    log(`✗ API 请求失败: ${response.status}`, 'error');
+                    log(`错误信息: ${data.message || JSON.stringify(data)}`, 'error');
+                    alert(`连接测试失败\nHTTP ${response.status}\n${data.message || JSON.stringify(data)}`);
+                }
+            } catch (error) {
+                log(`✗ 连接测试失败: ${error.message}`, 'error');
+                log(`错误详情: ${error.stack}`, 'error');
+                
+                // 诊断信息
+                log('\n=== 诊断信息 ===', 'warning');
+                log(`当前URL: ${window.location.href}`, 'info');
+                log(`是否HTTPS: ${window.location.protocol === 'https:'}`, 'info');
+                log(`User Agent: ${navigator.userAgent}`, 'info');
+                
+                alert(`连接测试失败\n错误: ${error.message}\n\n请检查：\n1. API Key 是否正确\n2. 网络连接是否正常\n3. 是否通过本地服务器访问（localhost 或 127.0.0.1）\n\n详细错误信息已显示在日志中`);
+            }
+        }
+
+        // 文件输入
+        function setupFileInput() {
+            document.getElementById('audioFile').addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    currentAudioFile = file;
+                    document.getElementById('fileName').textContent = file.name;
+                    document.getElementById('audioPreview').style.display = 'block';
+                    const url = URL.createObjectURL(file);
+                    document.getElementById('previewPlayer').src = url;
+                    log(`已选择文件: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`, 'info');
+                    log(`文件类型: ${file.type || '未知'}`, 'info');
+                }
+            });
+        }
+
+        // 日志
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        function exportLog() {
+            const logText = document.getElementById('log').innerText;
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `qwen-log-${Date.now()}.txt`;
+            a.click();
+        }
+
+        // 创建音色
+        async function createVoice() {
+            const settings = getSettings();
+            
+            if (!settings.apiKey) {
+                alert('请先设置 API Key');
+                switchTab('settings');
+                return;
+            }
+            if (!currentAudioFile) {
+                alert('请选择音频文件');
+                return;
+            }
+            const voiceName = document.getElementById('voiceName').value.trim() || 'custom_voice';
+
+            const btn = document.getElementById('createBtn');
+            const btnText = document.getElementById('createBtnText');
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="loading"></span> 创建中...';
+
+            try {
+                log('\n=== 开始创建音色 ===', 'info');
+                log(`音色名称: ${voiceName}`, 'info');
+                log(`目标模型: ${settings.model}`, 'info');
+                log(`API URL: ${CONFIG[settings.region].httpUrl}`, 'info');
+                
+                log('读取音频文件...', 'info');
+                const base64Audio = await fileToBase64(currentAudioFile);
+                const mimeType = currentAudioFile.type || 'audio/mpeg';
+                const dataUri = `data:${mimeType};base64,${base64Audio}`;
+                log(`音频Base64长度: ${base64Audio.length} 字符`, 'info');
+                log(`MIME类型: ${mimeType}`, 'info');
+
+                log('发送 API 请求...', 'info');
+                const startTime = Date.now();
+                const url = getProxiedUrl(CONFIG[settings.region].httpUrl);
+                log(`请求URL: ${url}`, 'info');
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'qwen-voice-enrollment',
+                        input: {
+                            action: 'create',
+                            target_model: settings.model,
+                            preferred_name: voiceName,
+                            audio: { data: dataUri }
+                        }
+                    })
+                });
+
+                const duration = Date.now() - startTime;
+                log(`请求完成，耗时: ${duration}ms`, 'info');
+                log(`HTTP状态码: ${response.status}`, response.ok ? 'success' : 'warning');
+
+                const responseText = await response.text();
+                log(`响应内容: ${responseText}`, 'info');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${responseText}`);
+                }
+
+                const data = JSON.parse(responseText);
+                
+                if (data.output?.voice) {
+                    const voiceId = data.output.voice;
+                    log(`\n✓ 音色创建成功!`, 'success');
+                    log(`Voice ID: ${voiceId}`, 'success');
+                    document.getElementById('createResult').innerHTML = `
+                        <div class="result-audio">
+                            <div style="color:#2e7d32;font-weight:600;">✅ 音色创建成功！</div>
+                            <div style="margin-top:8px;font-family:monospace;font-size:12px;word-break:break-all;">${voiceId}</div>
+                            <div style="margin-top:8px;color:#666;">现在可以使用这个音色进行语音合成了</div>
+                        </div>
+                    `;
+                    saveVoiceToList(voiceId, voiceName, settings.model);
+                } else {
+                    throw new Error('响应中未找到 voice 字段');
+                }
+            } catch (error) {
+                log(`\n✗ 创建失败: ${error.message}`, 'error');
+                log(`错误详情: ${error.stack}`, 'error');
+                
+                document.getElementById('createResult').innerHTML = `
+                    <div class="result-audio" style="background:#ffebee;">
+                        <div style="color:#c62828;">❌ 创建失败</div>
+                        <div style="margin-top:8px;font-family:monospace;font-size:12px;">${error.message}</div>
+                        <div style="margin-top:8px;font-size:12px;color:#666;">请查看日志获取详细错误信息</div>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = '创建音色';
+            }
+        }
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = (error) => {
+                    log(`文件读取失败: ${error}`, 'error');
+                    reject(error);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // 本地音色管理
+        function getVoiceList() {
+            return JSON.parse(localStorage.getItem('qwen_voice_list') || '[]');
+        }
+
+        function saveVoiceToList(voiceId, name, model) {
+            const list = getVoiceList();
+            list.unshift({ voiceId, name, model, createdAt: new Date().toISOString() });
+            localStorage.setItem('qwen_voice_list', JSON.stringify(list));
+        }
+
+        function removeVoiceFromList(voiceId) {
+            let list = getVoiceList();
+            list = list.filter(v => v.voiceId !== voiceId);
+            localStorage.setItem('qwen_voice_list', JSON.stringify(list));
+        }
+
+        // 查询音色列表（从API获取）
+        async function loadVoiceList() {
+            const settings = getSettings();
+            if (!settings.apiKey) {
+                document.getElementById('voiceList').innerHTML = '<div class="empty-state">请先设置 API Key</div>';
+                return;
+            }
+
+            document.getElementById('voiceList').innerHTML = '<div class="empty-state">加载中...</div>';
+
+            try {
+                log('加载音色列表...', 'info');
+                const url = getProxiedUrl(CONFIG[settings.region].httpUrl);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'qwen-voice-enrollment',
+                        input: {
+                            action: 'list',
+                            page_size: 100,
+                            page_index: 0
+                        }
+                    })
+                });
+
+                const data = await response.json();
+                log(`加载完成: ${JSON.stringify(data)}`, 'info');
+
+                if (response.ok && data.output?.voice_list) {
+                    const voices = data.output.voice_list;
+                    if (voices.length === 0) {
+                        document.getElementById('voiceList').innerHTML = '<div class="empty-state">暂无音色，请先创建</div>';
+                        return;
+                    }
+                    renderVoiceList(voices);
+                    log(`✓ 成功加载 ${voices.length} 个音色`, 'success');
+                } else {
+                    throw new Error(data.message || '获取失败');
+                }
+            } catch (error) {
+                log(`加载失败: ${error.message}`, 'error');
+                document.getElementById('voiceList').innerHTML = `<div class="empty-state" style="color:#c62828;">加载失败: ${error.message}</div>`;
+            }
+        }
+
+        function renderVoiceList(voices) {
+            const html = voices.map(v => `
+                <div class="voice-item">
+                    <div class="voice-info">
+                        <div class="voice-name">${v.voice}</div>
+                        <div class="voice-id">模型: ${v.target_model} | 创建: ${v.gmt_create}</div>
+                    </div>
+                    <div class="voice-actions">
+                        <button class="btn btn-success btn-small" onclick="useVoice('${v.voice}')">使用</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteVoice('${v.voice}')">删除</button>
+                    </div>
+                </div>
+            `).join('');
+            document.getElementById('voiceList').innerHTML = html;
+        }
+
+        async function deleteVoice(voiceId) {
+            if (!confirm(`确定要删除音色 "${voiceId}" 吗？`)) return;
+            
+            const settings = getSettings();
+            try {
+                const url = getProxiedUrl(CONFIG[settings.region].httpUrl);
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${settings.apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'qwen-voice-enrollment',
+                        input: {
+                            action: 'delete',
+                            voice: voiceId
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    log(`音色已删除: ${voiceId}`, 'success');
+                    removeVoiceFromList(voiceId);
+                    loadVoiceList();
+                } else {
+                    throw new Error('删除失败');
+                }
+            } catch (error) {
+                log(`删除失败: ${error.message}`, 'error');
+            }
+        }
+
+        function useVoice(voiceId) {
+            document.getElementById('synthesisVoice').value = voiceId;
+            switchTab('synthesize');
+            log(`已选择音色: ${voiceId}`);
+        }
+
+        function updateVoiceSelect() {
+            const select = document.getElementById('synthesisVoice');
+            const localVoices = getVoiceList();
+            
+            if (localVoices.length === 0) {
+                select.innerHTML = '<option value="">暂无音色，请先创建</option>';
+                return;
+            }
+            
+            select.innerHTML = localVoices.map(v => 
+                `<option value="${v.voiceId}">${v.name} (${v.voiceId.substring(0, 30)}...)</option>`
+            ).join('');
+        }
+
+        // 语音合成（WebSocket）
+        async function synthesize() {
+            const settings = getSettings();
+            const voiceId = document.getElementById('synthesisVoice').value;
+            const text = document.getElementById('synthesisText').value.trim();
+
+            if (!settings.apiKey) {
+                alert('请先设置 API Key');
+                return;
+            }
+            if (!voiceId) {
+                alert('请选择音色');
+                return;
+            }
+            if (!text) {
+                alert('请输入文本');
+                return;
+            }
+
+            const btn = document.getElementById('synthesizeBtn');
+            const btnText = document.getElementById('synthesizeBtnText');
+            btn.disabled = true;
+            btnText.innerHTML = '<span class="loading"></span> 合成中...';
+            document.getElementById('synthesisResult').innerHTML = '';
+
+            // 关闭之前的连接
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+
+            audioQueue = [];
+            isPlaying = false;
+
+            try {
+                log('\n=== 开始语音合成 ===', 'info');
+                log(`Voice ID: ${voiceId}`, 'info');
+                log(`文本长度: ${text.length} 字符`, 'info');
+                
+                // 检查是否使用 WebSocket 代理
+                const useWsProxy = settings.wsProxyUrl && settings.wsProxyUrl.trim() !== '';
+                let wsUrl;
+                
+                if (useWsProxy) {
+                    wsUrl = `${settings.wsProxyUrl}?url=${encodeURIComponent(CONFIG[settings.region].wsUrl)}&api_key=${encodeURIComponent(settings.apiKey)}&model=${settings.model}`;
+                    log(`使用 WebSocket 代理`, 'info');
+                } else {
+                    wsUrl = `${CONFIG[settings.region].wsUrl}?model=${settings.model}`;
+                    log(`直接连接阿里云`, 'info');
+                }
+                
+                log(`WebSocket URL: ${wsUrl}`, 'info');
+                
+                // 在 URL 中添加 voice 参数
+                const fullUrl = `${wsUrl}&voice=${encodeURIComponent(voiceId)}`;
+                log(`实际连接URL: ${fullUrl}`, 'info');
+                
+                ws = new WebSocket(fullUrl);
+                
+                const audioChunks = [];
+                let sessionCreated = false;
+
+                ws.onopen = () => {
+                    log('WebSocket 已连接', 'success');
+                    ws.send(JSON.stringify({
+                        type: 'session.update',
+                        session: {
+                            voice: voiceId,
+                            response_format: 'pcm',
+                            mode: 'server_commit'
+                        }
+                    }));
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        // 处理 Blob 类型数据
+                        let dataText;
+                        if (event.data instanceof Blob) {
+                            log('收到 Blob 消息，正在转换...', 'info');
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                handleMessage(e.target.result);
+                            };
+                            reader.onerror = (e) => {
+                                log('Blob 转换失败: ' + e, 'error');
+                            };
+                            reader.readAsText(event.data);
+                            return;
+                        } else {
+                            dataText = event.data;
+                        }
+                        handleMessage(dataText);
+                    } catch (e) {
+                        log(`处理消息错误: ${e.message}`, 'error');
+                    }
+                };
+
+                // 处理消息的独立函数
+                function handleMessage(messageText) {
+                    try {
+                        const data = JSON.parse(messageText);
+                        
+                        switch(data.type) {
+                            case 'session.created':
+                                log('会话已创建', 'info');
+                                log(`Session voice: ${data.session?.voice}`, 'info');
+                                sessionCreated = true;
+                                // 使用正确的消息格式：input_text_buffer.append
+                                ws.send(JSON.stringify({
+                                    type: 'input_text_buffer.append',
+                                    text: text
+                                }));
+                                // 然后提交缓冲区
+                                ws.send(JSON.stringify({
+                                    type: 'input_text_buffer.commit'
+                                }));
+                                // 结束会话
+                                ws.send(JSON.stringify({
+                                    type: 'session.finish'
+                                }));
+                                break;
+                                
+                            case 'response.audio.delta':
+                                const audioData = base64ToArrayBuffer(data.delta);
+                                audioChunks.push(audioData);
+                                audioQueue.push(audioData);
+                                if (!isPlaying) {
+                                    playAudioQueue();
+                                }
+                                break;
+                                
+                            case 'response.done':
+                                log('合成完成', 'success');
+                                break;
+                                
+                            case 'session.finished':
+                                log('会话结束', 'info');
+                                ws.close();
+                                if (audioChunks.length > 0) {
+                                    const completeAudio = concatenateArrayBuffers(audioChunks);
+                                    const wavBlob = pcmToWav(completeAudio, 24000);
+                                    const audioUrl = URL.createObjectURL(wavBlob);
+                                    document.getElementById('synthesisResult').innerHTML = `
+                                        <div class="result-audio">
+                                            <div style="color:#2e7d32;font-weight:600;">✅ 合成完成！</div>
+                                            <audio controls src="${audioUrl}"></audio>
+                                            <a href="${audioUrl}" download="synthesis_${Date.now()}.wav" class="btn btn-secondary btn-small" style="margin-top:8px;display:inline-block;text-decoration:none;">下载音频</a>
+                                        </div>
+                                    `;
+                                }
+                                btn.disabled = false;
+                                btnText.textContent = '开始合成';
+                                break;
+                                
+                            case 'error':
+                                log(`错误: ${data.error?.message || '未知错误'}`, 'error');
+                                btn.disabled = false;
+                                btnText.textContent = '开始合成';
+                                break;
+                                
+                            default:
+                                log(`收到消息类型: ${data.type}`, 'info');
+                        }
+                    } catch (e) {
+                        log(`解析消息失败: ${e.message}`, 'error');
+                    }
+                }
+
+                ws.onerror = (error) => {
+                    log('WebSocket 错误', 'error');
+                    log(`错误详情: ${JSON.stringify(error)}`, 'error');
+                    btn.disabled = false;
+                    btnText.textContent = '开始合成';
+                };
+
+                ws.onclose = (event) => {
+                    log(`WebSocket 已关闭: code=${event.code}, reason=${event.reason}`, 'info');
+                };
+
+            } catch (error) {
+                log(`合成失败: ${error.message}`, 'error');
+                btn.disabled = false;
+                btnText.textContent = '开始合成';
+            }
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function concatenateArrayBuffers(buffers) {
+            const totalLength = buffers.reduce((acc, buf) => acc + buf.byteLength, 0);
+            const result = new Uint8Array(totalLength);
+            let offset = 0;
+            for (const buf of buffers) {
+                result.set(new Uint8Array(buf), offset);
+                offset += buf.byteLength;
+            }
+            return result.buffer;
+        }
+
+        function pcmToWav(pcmBuffer, sampleRate) {
+            const view = new DataView(new ArrayBuffer(44 + pcmBuffer.byteLength));
+            const pcmData = new Uint8Array(pcmBuffer);
+            
+            // RIFF chunk
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + pcmBuffer.byteLength, true);
+            writeString(view, 8, 'WAVE');
+            
+            // fmt chunk
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, 1, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, sampleRate * 2, true);
+            view.setUint16(32, 2, true);
+            view.setUint16(34, 16, true);
+            
+            // data chunk
+            writeString(view, 36, 'data');
+            view.setUint32(40, pcmBuffer.byteLength, true);
+            
+            const wavData = new Uint8Array(view.buffer);
+            wavData.set(pcmData, 44);
+            
+            return new Blob([wavData], { type: 'audio/wav' });
+        }
+
+        function writeString(view, offset, string) {
+            for (let i = 0; i < string.length; i++) {
+                view.setUint8(offset + i, string.charCodeAt(i));
+            }
+        }
+
+        async function playAudioQueue() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: 24000
+                });
+            }
+
+            isPlaying = true;
+
+            while (audioQueue.length > 0) {
+                const buffer = audioQueue.shift();
+                const audioBuffer = audioContext.createBuffer(1, buffer.byteLength / 2, 24000);
+                const channelData = audioBuffer.getChannelData(0);
+                const pcmData = new Int16Array(buffer);
+                
+                for (let i = 0; i < pcmData.length; i++) {
+                    channelData[i] = pcmData[i] / 32768;
+                }
+
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                
+                await new Promise(resolve => {
+                    source.onended = resolve;
+                    source.start();
+                });
+            }
+
+            isPlaying = false;
+        }
+    </script>
+</body>
+</html>
